@@ -1,6 +1,5 @@
 python-docx
 langchain
-langchain_community.embeddings
 chromadb
 pysqlite3-binary
 openai
