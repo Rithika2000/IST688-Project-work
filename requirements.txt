@@ -4,4 +4,5 @@ chromadb
 pysqlite3-binary
 openai
 tiktoken
+langchain-community
 
