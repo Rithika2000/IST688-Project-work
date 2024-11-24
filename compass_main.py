@@ -41,7 +41,9 @@ class UniversityRecommendationSystem:
             chunk_overlap=200,
             length_function=len,
         )
-        self.data_path = "/workspaces/IST688-Project-work" #/workspaces/IST688-Project-work/compass_main.py
+        
+        # Changed the data path to /tmp
+        self.data_path = "/tmp/compass_data"  # Temporary storage for Streamlit Cloud
         os.makedirs(os.path.join(self.data_path, "preferences"), exist_ok=True)
         self.initialize_databases()
         self.setup_tools()
@@ -65,9 +67,9 @@ class UniversityRecommendationSystem:
                 is_persistent=True
             )
             
-            # Load datasets
-            living_expenses_df = pd.read_csv(os.path.join(self.data_path, "avglivingexpenses.csv")) #/workspaces/IST688_COMPASS_Project/avglivingexpenses.csv
-            employment_df = pd.read_csv(os.path.join(self.data_path, "Employment Projections.csv")) #./workspaces/IST688_COMPASS_Project/avglivingexpenses.csv'
+            # Load datasets from the updated data_path
+            living_expenses_df = pd.read_csv(os.path.join(self.data_path, "avglivingexpenses.csv"))
+            employment_df = pd.read_csv(os.path.join(self.data_path, "Employment Projections.csv"))
             university_text = self.load_word_document(os.path.join(self.data_path, "uni100.docx"))
             
             # Process living expenses
@@ -252,139 +254,26 @@ class UniversityRecommendationSystem:
                 response = self.agent_executor.invoke(
                     {
                         "input": enhanced_query,
-                        "chat_history": st.session_state.chat_history[-3:] # Only use last 3 messages for context
-                    },
-                    {"timeout": 30}  # 30 second timeout
+                        "chat_history": st.session_state.chat_history
+                    }
                 )
                 return response["output"]
-            except TimeoutError:
-                return "I apologize, but I couldn't process your request in time. Please try asking a more specific question."
             except Exception as e:
-                return "I apologize, but I couldn't process your request. Please try rephrasing your question more specifically."
-                
+                st.error(f"Error generating recommendation: {str(e)}")
+                return ""
         except Exception as e:
-            return "I encountered an error. Please try asking a more specific question."
+            st.error(f"Error processing recommendations: {str(e)}")
+            return ""
 
-def initialize_recommender():
-    """Initialize the recommendation system if not already in session state."""
-    if 'recommender' not in st.session_state:
-        try:
-            st.session_state.recommender = UniversityRecommendationSystem()
-            return True
-        except Exception as e:
-            st.error(f"Failed to initialize recommender: {str(e)}")
-            return False
-    return True
+# Initialize recommendation system
+compass_system = UniversityRecommendationSystem()
 
-def main():
-    """Main Streamlit application."""
-    st.title("🎓 COMPASS - University Recommendation System")
-    
-    # Initialize the recommender
-    if not initialize_recommender():
-        return
+# Streamlit UI components
+st.title("COMPASS: University Recommendation System")
 
-    # Sidebar for user preferences
-    with st.sidebar:
-        st.header("📋 Your Preferences")
-        
-        # Initialize default preferences
-        default_preferences = {
-            "field_of_study": "Computer Science",
-            "budget_min": 20000,
-            "budget_max": 50000,
-            "preferred_locations": [],
-            "weather_preference": "Moderate"
-        }
-        
-        # Use session state to track if preferences are set
-        if 'preferences_set' not in st.session_state:
-            st.session_state.preferences_set = False
-            st.session_state.user_preferences = default_preferences
-        
-        field_of_study = st.selectbox(
-            "Field of Study",
-            ["Computer Science", "Engineering", "Business", "Sciences", "Arts", "Other"],
-            index=["Computer Science", "Engineering", "Business", "Sciences", "Arts", "Other"].index(
-                st.session_state.user_preferences.get("field_of_study", "Computer Science")
-            )
-        )
-        
-        budget_range = st.slider(
-            "Budget Range (USD/Year)",
-            0, 100000, 
-            value=(
-                st.session_state.user_preferences.get("budget_min", 20000),
-                st.session_state.user_preferences.get("budget_max", 50000)
-            )
-        )
-        
-        preferred_location = st.multiselect(
-            "Preferred Locations",
-            ["Northeast", "Southeast", "Midwest", "Southwest", "West Coast"],
-            default=st.session_state.user_preferences.get("preferred_locations", [])
-        )
-        
-        weather_preference = st.select_slider(
-            "Weather Preference",
-            options=["Cold", "Moderate", "Warm", "Hot"],
-            value=st.session_state.user_preferences.get("weather_preference", "Moderate")
-        )
-        
-        if st.button("💾 Save Preferences"):
-            user_prefs = {
-                "field_of_study": field_of_study,
-                "budget_min": budget_range[0],
-                "budget_max": budget_range[1],
-                "preferred_locations": preferred_location,
-                "weather_preference": weather_preference
-            }
-            
-            # Update session state
-            st.session_state.user_preferences = user_prefs
-            st.session_state.preferences_set = True
-            st.success("✅ Preferences saved successfully!")
+# Add user input form and response display
+query = st.text_input("Enter your question or preference:")
 
-    # Main chat interface
-    st.header("💬 Chat with COMPASS")
-
-    if not st.session_state.preferences_set:
-        st.warning("👋 Please set your preferences in the sidebar before starting the conversation. "
-                  "This will help me provide more personalized recommendations!")
-        return
-    
-    # Clear chat button
-    if st.button("🗑️ Clear Chat", key="clear_chat"):
-        st.session_state.chat_history = []
-        st.rerun()
-
-    # Create a container for the chat history
-    chat_container = st.container()
-
-    # Display chat history
-    for message in st.session_state.chat_history:
-        with st.chat_message(message["role"]):
-            st.write(message["content"])
-
-    # Chat input
-    if prompt := st.chat_input("Ask me about universities, programs, costs, or job prospects...", 
-                             disabled=not st.session_state.preferences_set):
-        # Add user message to chat history
-        st.session_state.chat_history.append({"role": "user", "content": prompt})
-        
-        # Display user message immediately
-        with st.chat_message("user"):
-            st.write(prompt)
-        
-        # Display assistant response with typing indicator
-        with st.chat_message("assistant"):
-            with st.spinner("Thinking..."):
-                # Get bot response
-                response = st.session_state.recommender.get_recommendations(prompt)
-                st.write(response)
-                
-                # Add bot response to chat history
-                st.session_state.chat_history.append({"role": "assistant", "content": response})
-
-if __name__ == "__main__":
-    main()
+if query:
+    recommendations = compass_system.get_recommendations(query)
+    st.write(recommendations)
