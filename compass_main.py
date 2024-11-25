@@ -41,7 +41,7 @@ class UniversityRecommendationSystem:
             chunk_overlap=200,
             length_function=len,
         )
-        self.data_path = "/https://github.com/Rithika2000/IST688-Project-work/blob/main" #/workspaces/IST688-Project-work/compass_main.py
+        self.data_path = "/workspaces/IST688-Project-work" #/workspaces/IST688-Project-work/compass_main.py
         os.makedirs(os.path.join(self.data_path, "preferences"), exist_ok=True)
         self.initialize_databases()
         self.setup_tools()
